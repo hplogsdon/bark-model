@@ -1,0 +1,21 @@
+[project]
+name = "barking"
+version = "0.1.0"
+description = "Is it ~~Hotdog~~ barking?"
+requires-python = ">=3.11"
+dependencies = [
+    "click",
+    "ipython",
+    "jupyter",
+    "polars",
+    "soundata",
+]
+
+[tool.setuptools.packages.find]
+where = [
+    "src/barking",
+    "notebooks"
+]
+
+[project.scripts]
+barking = "barking.barking:cli"
