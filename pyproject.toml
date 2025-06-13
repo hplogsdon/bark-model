@@ -51,7 +51,7 @@ addopts = [
     "--strict-markers",
     "--durations=20",
     "--cov-report", "term-missing",
-    "--cov={{cookiecutter.project_slug}}",
+    "--cov=barking",
 ]
 testpaths = ["tests"]
 markers = [
