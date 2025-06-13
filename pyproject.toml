@@ -1,21 +1,109 @@
+[build-system]
+requires = ["setuptools >= 77.0.3", "packaging"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "barking"
-version = "0.1.0"
 description = "Is it ~~Hotdog~~ barking?"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
+dynamic = ["version", "readme"]
+
+authors = [
+    { name = "Howard Logsdon", email = "uxp@hplogsdon.com" }
+]
+maintainers = [
+    { name = "Howard Logsdon", email = "uxp@hplogsdon.com" }
+]
 dependencies = [
     "click",
     "ipython",
     "jupyter",
     "polars",
-    "soundata",
 ]
 
-[tool.setuptools.packages.find]
-where = [
-    "src/barking",
-    "notebooks"
+
+[project.optional-dependencies]
+test = [
+    "packaging",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "ruff",
+    "tox",
 ]
 
 [project.scripts]
-barking = "barking.barking:cli"
+barking = "barking:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["*"]
+exclude = ["barking.tests*"]
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.md"]}
+
+
+[tool.pytest.ini_options]
+addopts = [
+    "--tb", "native",
+    "--strict-markers",
+    "--durations=20",
+    "--cov-report", "term-missing",
+    "--cov={{cookiecutter.project_slug}}",
+]
+testpaths = ["tests"]
+markers = [
+    "unit: marks tests as unit (select with '-m \"unit\"')",
+    "integration: marks tests as integration (select with '-m \"integration\"')"
+]
+
+[tool.ruff]
+lint.select = [
+    "B", # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "DTZ", # flake8-datetimez
+    "E", # pycodestyle errors
+    "EXE", # flake8-executable
+    "F", # pyflakes
+    "I", # isort
+    "INT", # flake8-gettext
+    "PIE", # flake8-pie
+    "PLC", # pylint convention
+    "PLE", # pylint errors
+    "PT", # flake8-pytest-style
+    "PTH", # flake8-use-pathlib
+    "RSE", # flake8-raise
+    "RUF", # ruff-specific rules
+    "S", # flake8-bandit
+    "UP", # pyupgrade
+    "W", # pycodestyle warnings
+]
+lint.ignore = [
+    "RUF001", # ruff-specific rules ambiguous-unicode-character-string
+    "S101", # flake8-bandit assert
+    "S308", # flake8-bandit suspicious-mark-safe-usage
+    "S603", # flake8-bandit subprocess-without-shell-equals-true
+    "S607", # flake8-bandit start-process-with-partial-path
+    "E501", # pycodestyle line-too-long
+]
+exclude = [
+    "barking.egg-info",
+    ".eggs",
+    ".git",
+    ".mypy_cache",
+    ".nox",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "venv",
+    "setup.py"
+]
+src = ["src", "tests"]
+line-length = 120
+target-version = "py311"
