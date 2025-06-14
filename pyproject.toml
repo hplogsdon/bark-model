@@ -18,7 +18,12 @@ dependencies = [
     "click",
     "ipython",
     "jupyter",
-    "polars",
+    "librosa",
+    "notebook",
+    "numpy",
+    "pandas",
+    "torch",
+    "torchaudio"
 ]
 
 
