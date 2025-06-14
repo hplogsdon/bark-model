@@ -1,81 +1,107 @@
 from pathlib import Path
 
+import librosa
+import numpy as np
 import pandas as pd
 import torch
-import torchaudio
+from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import Dataset
 
 
-class UrbanSoundDataset(Dataset):
-    def __init__(self, annotations, audio_dir, device, transform, target_sample_rate, num_samples, num_channels=1):
-        self.annotations = pd.read_csv(annotations)
-        self.audio_dir = Path(audio_dir)
-        self.device = device
-        self.transformation = transform
-        self.target_sample_rate = target_sample_rate
-        self.num_samples = num_samples
-        self.num_channels = num_channels
+class UrbanSound8KDataset(Dataset):
+    metadata: pd.DataFrame
+    audio_dir: Path
+
+    def __init__(self, audio_dir, annotations: str | pd.DataFrame = None, sample_rate=22050, transform=None):
+        """
+        Args:
+            audio_dir (str): Path to the directory containing audio files.
+            annotations (str): Path to the CSV file containing metadata (with fsID, classID, etc.).
+            sample_rate (int): The sample rate to resample audio to (default is 22050).
+            transform (callable, optional): A function/transform to apply to the audio (e.g., MFCC).
+        """
+        self.audio_dir = Path(str(audio_dir))
+        if isinstance(annotations, str):
+            self.metadata = pd.read_csv(annotations)
+        else:
+            self.metadata = annotations
+        self.sample_rate = sample_rate
+        self.transform = transform
+
+        # Label encoding for classID to numerical labels
+        self.label_encoder = LabelEncoder()
+        self.metadata["classID"] = self.label_encoder.fit_transform(self.metadata["class"])
 
     def __len__(self):
-        """Returns the number of samples in the dataset."""
-        return len(self.annotations)
+        """Return the total number of samples in the dataset."""
+        return len(self.metadata)
+
+    def extract_features(self, X):
+        result = np.array([])
+
+        # MFCC
+        mfccs = np.mean(librosa.feature.mfcc(y=X, sr=self.sample_rate, n_mfcc=40).T, axis=0)
+        result = np.hstack((result, mfccs))
+
+        # Chroma_STFT
+        stft = np.abs(librosa.stft(X))
+        chroma = np.mean(
+            librosa.feature.chroma_stft(S=stft, sr=self.sample_rate, n_chroma=32, window="hamming", n_fft=1024).T,
+            axis=0,
+        )
+        result = np.hstack((result, chroma))
+
+        # Mel Spectrogram
+        mel = np.mean(
+            librosa.feature.melspectrogram(
+                y=X, sr=self.sample_rate, n_mels=128, fmax=8000, n_fft=1024, hop_length=512, window="hamming"
+            ).T,
+            axis=0,
+        )
+        result = np.hstack((result, mel))
+
+        # Zero Crossing Rate
+        Z = np.mean(librosa.feature.zero_crossing_rate(y=X), axis=1)
+        result = np.hstack((result, Z))
+
+        # Root Mean Square Energy
+        rms = np.mean(librosa.feature.rms(y=X).T, axis=0)
+        result = np.hstack((result, rms))
+
+        return result
 
     def __getitem__(self, idx):
-        """
-        get index of item
-        ex: my_list[1] -> my_list.__getitem__(1)
-        :param idx:
-        :return:
-        """
-        audio_sample_path = self._audio_sample_path(idx)
-        label = self._get_audio_sample_label(idx)
-        # Load in the audio file as signal
-        signal, sr = torchaudio.load(audio_sample_path)
-        # Register signal to the device
-        signal = signal.to(self.device)
-        # Resample the signal if needed
-        signal = self._resample_if_needed(signal, sr)
-        # Transform the signal to Mono for Spectrogram if needed
-        signal = self._mono_if_needed(signal)
-        # Cut the signal length if necessary (only handle signals with length >= num_samples)
-        signal = self._cut_if_needed(signal)
-        # Add padding when needed
-        signal = self._add_padding_if_needed(signal)
-        # Pass the signal to the transformation (mel spectrogram)
-        signal = self.transformation(signal)
+        """Return the sample (audio, label, metadata) at index `idx`."""
+        # Get the metadata for the current sample
+        row = self.metadata.iloc[idx]
+        start_time = row["start"]
+        end_time = row["end"]
+        fold = row["fold"]
+        file_name = row["slice_file_name"]
+        label = row["classID"]
 
-        return signal, label
+        # Load the audio file using librosa
+        audio_path = self.audio_dir / f"fold{fold}" / file_name
+        waveform, sample_rate = librosa.load(audio_path, sr=self.sample_rate)
 
-    def _resample_if_needed(self, signal, sr):
-        if sr != self.target_sample_rate:
-            resampler = torchaudio.transforms.Resample(sr, self.target_sample_rate).to(self.device)
-            signal = resampler(signal)
-        return signal
+        # Resample if the sample rate does not match the desired rate
+        if sample_rate != self.sample_rate:
+            waveform = librosa.resample(waveform, sample_rate, self.sample_rate)
 
-    def _mono_if_needed(self, signal):
-        if signal.shape[0] > self.num_channels:
-            signal = torch.mean(signal, dim=0, keepdim=True)
-        return signal
+        # Extract features
+        features = self.extract_features(waveform)
 
-    def _cut_if_needed(self, signal):
-        # signal -> Tensor -> (1, num_samples) -> (1, 50000) -> (1, 22050) # First 22050 samples of audio
-        if signal.shape[1] > self.num_samples:
-            signal = signal[:, : self.num_samples]
-        return signal
+        # Convert features to tensor and label to long
+        features_tensor = torch.tensor(features, dtype=torch.float32)
+        label_tensor = torch.tensor(label, dtype=torch.long)  # Ensure label is of type long
 
-    def _add_padding_if_needed(self, signal):
-        signal_length = signal.shape[1]
-        if signal_length < self.num_samples:
-            num_missing = self.num_samples - signal_length
-            last_dim_padding = (0, num_missing)
-            signal = torch.nn.functional.pad(signal, last_dim_padding)
-        return signal
+        sample = {
+            "features": features_tensor,
+            "start": start_time,
+            "end": end_time,
+            "fold": fold,
+            "file_name": file_name,
+            "label": label_tensor,
+        }
 
-    def _audio_sample_path(self, idx):
-        # indexes below refer to the columns in the annotations file (.csv)
-        fold = f"fold{self.annotations.iloc[idx, 5]}"
-        path = self.audio_dir / fold / self.annotations.iloc[idx, 0]
-        return path
-
-    def _get_audio_sample_label(self, idx):
-        return self.annotations.iloc[idx, 6]
+        return sample

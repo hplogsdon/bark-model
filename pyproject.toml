@@ -22,6 +22,7 @@ dependencies = [
     "notebook",
     "numpy",
     "pandas",
+    "tqdm",
     "torch",
     "torchaudio"
 ]
@@ -30,6 +31,7 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "packaging",
+    "pandas-stubs",
     "pre-commit",
     "pytest",
     "pytest-cov",
