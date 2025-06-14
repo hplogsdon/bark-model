@@ -218,7 +218,7 @@ def train(ctx: click.Context, model_path, num_epochs, learn_rate):
 @cli.command()
 @click.option("-m", "--model-path", default="models/UrbanSound8K.pth", help="Path to model to use")
 @click.option("-f", "--audio-file", help="Audio file to process.")
-@click.option("-r", "--sample-rate", type=int, help="Sample rate.")
+@click.option("-r", "--sample-rate", type=int, default=22050, help="Sample rate.")
 @click.pass_context
 def infer(ctx: click.Context, model_path, audio_file, sample_rate):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
