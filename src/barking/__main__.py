@@ -143,9 +143,24 @@ def cli(ctx):
         ctx.obj = {}
 
     if not Path("data/UrbanSound8K").exists():
-        click.echo("Downloading UrbanSound8K...")
         # remote_url = "https://zenodo.org/record/1203745/files/UrbanSound8K.tar.gz?download=1"
         # Do download. I dont care to do it in code. just wget and untar
+        raise ValueError("UrbanSound8K dataset not found.")
+
+    ctx.obj["annotations"] = "data/UrbanSound8K/metadata/UrbanSound8K.csv"
+    ctx.obj["audio_dir"] = "data/UrbanSound8K/audio"
+    ctx.obj["labels"] = {
+        0: "air_conditioner",
+        1: "car_horn",
+        2: "children_playing",
+        3: "dog_bark",
+        4: "drilling",
+        5: "engine_idling",
+        6: "gun_shot",
+        7: "jackhammer",
+        8: "siren",
+        9: "street_music",
+    }
 
 
 @cli.command()
@@ -154,8 +169,8 @@ def cli(ctx):
 @click.option("-l", "--learn-rate", default=0.001, help="Learning rate.")
 @click.pass_context
 def train(ctx: click.Context, model_path, num_epochs, learn_rate):
-    annotations = "data/UrbanSound8K/metadata/UrbanSound8K.csv"
-    audio_dir = "data/UrbanSound8K/audio"
+    annotations = ctx.obj["annotations"]
+    audio_dir = ctx.obj["audio_dir"]
 
     train_dataset, val_dataset, test_dataset = create_datasets(audio_dir, annotations)
 
@@ -203,14 +218,14 @@ def train(ctx: click.Context, model_path, num_epochs, learn_rate):
 @cli.command()
 @click.option("-m", "--model-path", default="models/UrbanSound8K.pth", help="Path to model to use")
 @click.option("-f", "--audio-file", help="Audio file to process.")
-@click.option("-sr", "--sample-rate", type=int, help="Sample rate.")
+@click.option("-r", "--sample-rate", type=int, help="Sample rate.")
 @click.pass_context
 def infer(ctx: click.Context, model_path, audio_file, sample_rate):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
     waveform, sr = librosa.load(audio_file, sr=sample_rate)
 
-    dataset = UrbanSound8KDataset(audio_dir="", annotations="data/UrbanSound8K/metadata/UrbanSound8K.csv")
+    dataset = UrbanSound8KDataset(audio_dir="", annotations=ctx.obj["annotations"])
     features = dataset.extract_features(waveform)
     features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
     features_tensor = features_tensor.to(device)
@@ -223,20 +238,8 @@ def infer(ctx: click.Context, model_path, audio_file, sample_rate):
     _, predicted_class = torch.max(outputs, 1)
     confidence = torch.softmax(outputs, dim=1)[0][predicted_class].item()
 
-    labels = [
-        "air_conditioner",
-        "car_horn",
-        "children_playing",
-        "dog_bark",
-        "drilling",
-        "engine_idling",
-        "gun_shot",
-        "jackhammer",
-        "siren",
-        "street_music",
-    ]
     idx = ([predicted_class.item()])[0]
-    label_name = labels[int(idx)]
+    label_name = ctx.obj["labels"][int(idx)]
 
     print(label_name, confidence)
 
