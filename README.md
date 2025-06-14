@@ -1,7 +1,7 @@
 # Bark Detection
 
-Quick example using trained UrbanSound8K model to detect content various audio samples, intended to be used for
-dog barking detection (but can be used for any of the audio classifications within that dataset).
+Quick example using trained UrbanSound8K model via pytorch to detect content various audio samples, intended to
+be used for dog barking detection (but can be used for any of the audio classifications within that dataset).
 
 ## Usage
 

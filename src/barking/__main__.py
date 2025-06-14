@@ -60,7 +60,7 @@ def _train(model, train_loader, criterion, optimiser, device):
 
             avg_loss = running_loss / len(train_loader)
             accuracy = (correct_predictions / total_predictions) * 100
-            pbar.set_postfix(loss=avg_loss, accuracy=accuracy)
+            pbar.set_postfix(loss=f"{avg_loss:0.4f}", accuracy=f"{accuracy:0.2f}")
 
     avg_loss = running_loss / len(train_loader)
     accuracy = (correct_predictions / total_predictions) * 100
