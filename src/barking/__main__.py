@@ -149,10 +149,11 @@ def cli(ctx):
 
 
 @cli.command()
+@click.option("-m", "--model-path", default="models/UrbanSound8K.pth", help="Path to model to use")
 @click.option("-e", "--num-epochs", default=10, help="Number of epochs to train.")
 @click.option("-l", "--learn-rate", default=0.001, help="Learning rate.")
 @click.pass_context
-def train(ctx: click.Context, num_epochs, learn_rate):
+def train(ctx: click.Context, model_path, num_epochs, learn_rate):
     annotations = "data/UrbanSound8K/metadata/UrbanSound8K.csv"
     audio_dir = "data/UrbanSound8K/audio"
 
@@ -164,13 +165,12 @@ def train(ctx: click.Context, num_epochs, learn_rate):
 
     # Initialize best validation accuracy and model checkpoint
     best_val_acc = 0.0
-    best_model_path = "models/best_model.pth"  # Path where the best model will be saved
 
     # Initialize model, loss function, and optimizer
-    input_size = 40 + 32 + 128 + 1 + 1  # Features for MFCC, Chroma, Mel, ZCR, RMS
-    num_classes = len(train_dataset.label_encoder.classes_)  # Number of sound classes
+    input_size = 40 + 32 + 128 + 1 + 1  # Features for MFCC, Chroma, Mel, ZCR, RMS (202)
+    num_classes = len(train_dataset.label_encoder.classes_)  # Number of sound classes (10)
 
-    model = load_model(best_model_path, input_size, num_classes, device)
+    model = load_model(model_path, input_size, num_classes, device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learn_rate)
 
@@ -188,11 +188,11 @@ def train(ctx: click.Context, num_epochs, learn_rate):
         # Save the model if it has better validation accuracy
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            torch.save(model.state_dict(), best_model_path)
+            torch.save(model.state_dict(), model_path)
             print(f"Saved best model with Val Accuracy: {val_acc:.2f}%")
 
     # Load the best model for final evaluation
-    model.load_state_dict(torch.load(best_model_path))
+    model.load_state_dict(torch.load(model_path))
     model.to(device)
 
     # Evaluate on the test set
@@ -201,10 +201,11 @@ def train(ctx: click.Context, num_epochs, learn_rate):
 
 
 @cli.command()
+@click.option("-m", "--model-path", default="models/UrbanSound8K.pth", help="Path to model to use")
 @click.option("-f", "--audio-file", help="Audio file to process.")
 @click.option("-sr", "--sample-rate", type=int, help="Sample rate.")
 @click.pass_context
-def infer(ctx: click.Context, audio_file, sample_rate):
+def infer(ctx: click.Context, model_path, audio_file, sample_rate):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
     waveform, sr = librosa.load(audio_file, sr=sample_rate)
@@ -214,7 +215,6 @@ def infer(ctx: click.Context, audio_file, sample_rate):
     features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
     features_tensor = features_tensor.to(device)
 
-    model_path = "models/best_model.pth"
     model = load_model(model_path, input_size=202, num_classes=10, device=device)
 
     with torch.no_grad():
@@ -235,8 +235,8 @@ def infer(ctx: click.Context, audio_file, sample_rate):
         "siren",
         "street_music",
     ]
-    id = ([predicted_class.item()])[0]
-    label_name = labels[int(id)]
+    idx = ([predicted_class.item()])[0]
+    label_name = labels[int(idx)]
 
     print(label_name, confidence)
 
