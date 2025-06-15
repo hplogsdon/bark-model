@@ -1,11 +1,12 @@
 """Console script for barking."""
 
+import asyncio
 from pathlib import Path
 
 import click
 
 from barking.learning import run_inference, run_training
-from barking.service import app as bark_app
+from barking.service import service_app
 
 
 @click.group()
@@ -57,7 +58,7 @@ def train(ctx: click.Context, model_path, num_epochs, learn_rate):
 
 @cli.command()
 @click.option("-m", "--model-path", default="models/UrbanSound8K.pth", help="Path to model to use")
-@click.option("-f", "--audio-file", help="Audio file to process.")
+@click.option("-f", "--audio-file", help="Audio file to process.", required=True)
 @click.option("-r", "--sample-rate", type=int, default=22050, help="Sample rate.")
 @click.pass_context
 def inference(ctx: click.Context, model_path, audio_file, sample_rate):
@@ -66,7 +67,7 @@ def inference(ctx: click.Context, model_path, audio_file, sample_rate):
     Args:
         ctx: Click context object.
         model_path: Path to model to use.
-        audio_file: Audio file to process.
+        audio_file: WAV Audio file to process.
         sample_rate: Sample rate.
     """
     inferred_class, confidence_score = run_inference(
@@ -77,8 +78,6 @@ def inference(ctx: click.Context, model_path, audio_file, sample_rate):
 
 @cli.command()
 @click.option("-m", "--model-path", default="models/UrbanSound8K.pth", help="Path to model to use")
-@click.option("-f", "--audio-file", help="Audio file to process.")
-@click.option("-r", "--sample-rate", type=int, default=22050, help="Sample rate.")
 @click.pass_context
 def run(ctx: click.Context, model_path):
     """Run the application.
@@ -87,7 +86,7 @@ def run(ctx: click.Context, model_path):
         ctx (click.Context): Click Context object.
         model_path: Path to model to use.
     """
-    svc = bark_app
+    asyncio.run(service_app())
 
 
 if __name__ == "__main__":
