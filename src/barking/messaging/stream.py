@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 
-from barking.messaging.message import Message
+from barking.messaging.envelope import Envelope
 
 
 class Sentinel(type):
@@ -37,22 +37,22 @@ class EventStream:
     def closed(self) -> bool:
         return self._closed.is_set()
 
-    async def __aiter__(self) -> AsyncIterator[Message]:
+    async def __aiter__(self) -> AsyncIterator[Envelope]:
         try:
             while msg := await self.get():
                 yield msg
         except (StreamFinished, asyncio.CancelledError):
             self._closed.set()
 
-    async def get(self) -> Message:
+    async def get(self) -> Envelope:
         if (msg := await self._queue.get()) and not isinstance(msg, EndOfStream):
             self._queue.task_done()
             return msg
         raise StreamFinished
 
-    async def put(self, msg: Message | EndOfStream):
-        if not isinstance(msg, Message) and not isinstance(msg, EndOfStream):
-            raise ValueError("msg must be a Message")
+    async def put(self, msg: Envelope | EndOfStream):
+        if not isinstance(msg, Envelope) and not isinstance(msg, EndOfStream):
+            raise ValueError("msg must be a Message or EndOfStream")
 
         await self._queue.put(msg)
 

@@ -7,6 +7,7 @@ from typing import TypeVar
 from barking.messaging.brokers import Broker, MemoryBroker
 from barking.messaging.handler import HandlerGroup, MessageHandler
 from barking.messaging.message import Message
+from barking.messaging.serializers import JSONSerializer
 from barking.messaging.stream import EventStream
 from barking.messaging.utils import gather_with_concurrency
 
@@ -31,7 +32,7 @@ class EventBus:
         self, node_id: str | None = None, broker: Broker | None = None, *args, concurrency_limit: int = 10, **kwargs
     ):
         self._node_id = node_id or str(uuid.uuid4())
-        self._broker = broker or MemoryBroker()
+        self._broker = broker or MemoryBroker("memory://", serializer=JSONSerializer(), max_size=100)
         self._concurrency_limit = concurrency_limit
 
         self._lock = asyncio.Lock()
@@ -146,10 +147,11 @@ class EventBus:
     async def _handler(self):
         """Iteratively add the incoming messages to their respective streams"""
         while True:
-            channel, msg = await self._broker.next()
+            channel, envelope = await self._broker.next()
             streams = self._streams.get(channel, set()) | self._streams.get("*", set())
             for stream in streams:
-                await stream.put(msg)
+                await envelope.register_recipient()
+                await stream.put(envelope)
 
     async def _create_handler_reader(self, channel):
         self._handler_tasks[channel] = asyncio.create_task(self._read_stream(channel))

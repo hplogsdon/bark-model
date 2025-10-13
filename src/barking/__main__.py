@@ -1,12 +1,14 @@
 """Console script for barking."""
 
-import asyncio
+import logging
 from pathlib import Path
 
 import click
 
 from barking.learning import run_inference, run_training
 from barking.service import service_app
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 @click.group()
@@ -86,7 +88,7 @@ def run(ctx: click.Context, model_path):
         ctx (click.Context): Click Context object.
         model_path: Path to model to use.
     """
-    asyncio.run(service_app())
+    service_app()
 
 
 if __name__ == "__main__":

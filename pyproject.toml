@@ -8,12 +8,6 @@ description = "Is it ~~Hotdog~~ barking?"
 requires-python = ">=3.13"
 dynamic = ["version", "readme"]
 
-authors = [
-    { name = "Howard Logsdon", email = "uxp@hplogsdon.com" }
-]
-maintainers = [
-    { name = "Howard Logsdon", email = "uxp@hplogsdon.com" }
-]
 dependencies = [
     "click",
     "ipython",
@@ -22,6 +16,7 @@ dependencies = [
     "notebook",
     "numpy",
     "pandas",
+    "pyaudio",
     "tqdm",
     "torch",
     "torchaudio"
